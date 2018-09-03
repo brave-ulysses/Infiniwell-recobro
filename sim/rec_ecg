@@ -761,7 +761,7 @@ def create_edf(idx,data0,data1,data2,data3,data4,data5,data6,data7,data8,data9,d
 
 ###########################################################
 print 'get fixed pleth data'
-p=open('/opt/bin/pleth','r')
+p=open('pleth','r')
 pleth=list()
 for i in p.readlines():
     pleth.append( float(i.strip()) )
@@ -784,7 +784,7 @@ print 'pleth max {} min {} .'.format(pdmax,pdmin)
 
 ###########################################################
 print 'get fixed ecg data'
-e=open('/opt/bin/ecg_200','r')
+e=open('ecg_200','r')
 ecg=list()
 for i in e.readlines():
     ecg.append( float(i.strip()) )
@@ -805,10 +805,10 @@ for val in ecg:
 
 print 'ecg max {} min {} .'.format(edmax,edmin)
 
-
+'''
 ###########################################################
 print 'get fixed sL1 data'
-e=open('/opt/infiniwell/sim/edf/_sL1','r')
+e=open('edf/sL1','r')
 sl1=list()
 for i in e.readlines():
     sl1.append( float(i.strip()) )
@@ -832,7 +832,7 @@ print 'sl1 max {} min {} .'.format(sl1max,sl1min)
 
 ###########################################################
 print 'get fixed sL2 data'
-e=open('/opt/infiniwell/sim/edf/_sL2','r')
+e=open('edf/sL2','r')
 sl2=list()
 for i in e.readlines():
     sl2.append( float(i.strip()) )
@@ -857,7 +857,7 @@ print 'sl2 max {} min {} .'.format(sl2max,sl2min)
 
 ###########################################################
 print 'get fixed sL3 data'
-e=open('/opt/infiniwell/sim/edf/_sL3','r')
+e=open('edf/sL3','r')
 sl3=list()
 for i in e.readlines():
     sl3.append( float(i.strip()) )
@@ -882,7 +882,7 @@ print 'sl3 max {} min {} .'.format(sl3max,sl3min)
 
 ###########################################################
 print 'get fixed sV data'
-e=open('/opt/infiniwell/sim/edf/_sV','r')
+e=open('edf/sV','r')
 sv=list()
 for i in e.readlines():
     sv.append( float(i.strip()) )
@@ -902,7 +902,7 @@ for val in sv:
     #if debug: print ' nval {} max {} min {}'.format(nval,svmax,svmin)
 
 print 'sv max {} min {} .'.format(svmax,svmin)
-
+'''
 
 
 
