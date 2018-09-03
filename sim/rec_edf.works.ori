@@ -1,0 +1,630 @@
+#!/bin/env python
+
+from __future__ import division
+import paho.mqtt.client as mqtt
+import sys
+import time
+import numpy as np
+import pyedflib
+import math
+from datetime import datetime, date
+import os
+import random
+from math import *
+
+import signal
+import glob
+import ssl
+import fcntl
+import re
+
+
+
+bfr_len=4096
+live_data=True
+tls=False
+
+debug=False
+
+limit=-1
+
+for arg in sys.argv:
+    print arg
+    if arg == '-live':
+       live_data=False
+       print 'live_data {}'.format(live_data)
+
+    if arg.split('=')[0] == 'lim':
+       limit=int(arg.split('=')[1])
+       print 'limit {}'.format(limit)
+
+
+    if '-h' in arg.lower() or 'help' in arg.lower():
+       print '\nusage: {} [-live] [lim=n] [-h]'.format(sys.argv[0])
+       print '         -live - send canned pleth data'
+       print '         lim=n send n mqtt packets and exit. default -1 don\'t exit'
+       print '         -h    - this help screen\n'
+       exit()
+
+
+if live_data:
+   print 'starting /dev/rfcomm0 device'
+   os.system('rfcomm -r connect hci0 00:80:E1:BC:1B:CD 1 &')
+   print 'started /dev/rfcomm0 device'
+   time.sleep(1)
+
+
+
+dstr=os.popen2('date +%s')[1].read().strip()[-8:]
+
+dev_id='celina_live_{}'.format(dstr)
+dev_id='celina_{:013d}'.format(int(1000*time.time()))
+
+
+ONE_STOP_BIT = 1
+MOD_BITS_LSB = 1
+MOD_BITS_MSB = 2
+NO_MODULE_BIT = 1
+ECG_5L_BIT = 2
+SPO2_BIT = 4
+NIBP_BIT = 8
+IBP1_BIT = 16
+IBP2_BIT = 32
+TEMP_BIT = 64
+ETCO2_BIT = 128
+AGM_BIT = (1 << 8)
+CO_BIT = (2 << 8)
+DOA_BIT = (4 << 8)
+PT_INFO_BIT = (8 << 8)
+ECG_3L_BIT = (16 << 8)
+AVG_COMPLEX_BIT = (32 << 8)
+NEW_MODULE_BIT = (64 << 8)
+
+FRBYTES=4
+
+
+NEW_BEAT_SPO2 = 0x01
+OPEN_FINGER = 0x02
+NO_PULSE_ALARM = 0x04
+SEARCHING_PULSE = 0x08
+LOW_PERFUSION = 0x10
+NO_PROBE = 0x20
+START_MONITORING_ALARM = 0x40
+
+
+ctlc=False
+
+def signal_handler(sig, frame):
+        global ctlc
+        ctlc=True
+        print('control-c')
+
+signal.signal(signal.SIGINT, signal_handler)
+
+
+
+def get_pkt(buf):
+    i=0
+
+    #buf=bufr[3:] # remove 55 aa header + length byte
+
+    if debug: print 'type buf {} len buf {}'.format(type(buf),len(buf))
+
+    while i < len(buf)-1:
+
+        #if debug: print 'len {} b[{}] {:02X} b[{}] {:02X}'.format(len(buf),i,ord(buffer[i]),i+1,ord(buf[i+1]))
+        if debug: sys.stdout.write('{:02x} '.format(ord(buf[i])) )
+
+        if ord(buf[i]) == 0X55 and ord(buf[i+1]) == 0XAA:  # 85 and 170 decimal
+           
+           start=i
+           ln=ord(buf[start+2])
+           if debug: print '\nstart {} ln {} blen {} buf {}'.format(start,ln,len(buf[start:]),repr(buf[start:]))
+
+           if len(buf[start:]) < 40:
+              return buf,None
+              
+           frn = ord(buf[start+3])
+
+           temp=0
+           if debug: print 'temp {} 4 {} 5 {}'.format(temp,ord(buf[start+4]),ord(buf[start+5]))
+           temp |= ord(buf[start+4])
+           if debug: print 'temp {} 4 {} 5 {}'.format(temp,ord(buf[start+4]),ord(buf[start+5]))
+           temp |= ( ord(buf[start+5])<< 8)
+           if debug: print 'temp {} 4 {} 5 {}'.format(temp,ord(buf[start+4]),ord(buf[start+5]))
+
+           spo2_wave = ord(buf[24])
+           if spo2_wave > 127:
+              spo2_wave -= 256
+
+           spo2_flag = ord(buf[26])
+
+
+           if debug: print 'found field of {} bytes'.format(ln) 
+
+           if not frn:
+              print '\n' 
+              print '\n' 
+              for j in range(ln+3):
+                  sys.stdout.write('{:02d} '.format(j) )
+              print '\n' 
+
+           if False and debug:
+              print  'temp          {:02X} '.format(temp)
+              print  'NO_MODULE_BIT {:02X} '.format(temp&NO_MODULE_BIT)
+              print  'ECG_5L_BIT    {:02X} '.format(temp&ECG_5L_BIT)
+              print  'SPO2_BIT      {:02X} '.format(temp&SPO2_BIT)
+              print  'NIBP_BIT      {:02X} '.format(temp&NIBP_BIT)
+              print  'IBP1_BIT      {:02X} '.format(temp&IBP1_BIT)
+              print  'IBP2_BIT      {:02X} '.format(temp&IBP2_BIT)
+              print  'TEMP_BIT      {:02X} '.format(temp&TEMP_BIT)
+              print  'ETCO2_BIT     {:02X} '.format(temp&ETCO2_BIT)
+
+
+           newbt = spo2_flag&NEW_BEAT_SPO2
+           ofing = spo2_flag&OPEN_FINGER
+           nopls = spo2_flag&NO_PULSE_ALARM
+           spls  = spo2_flag&SEARCHING_PULSE
+           lperf = spo2_flag&LOW_PERFUSION
+           nopr  = spo2_flag&NO_PROBE
+           smona = spo2_flag&START_MONITORING_ALARM
+
+
+
+           if debug: print 'start {} ln {}'.format(start,ln)
+           for j in range(ln+3):
+               sys.stdout.write('{:02X} '.format(ord(buf[start+j])))
+           print '  spo2 {} f {}:  newbt {} ofing {} nopls {} spls {} lperf {} nopr {} smona {}'.format(spo2_wave,bin(spo2_flag),newbt,ofing,nopls,spls,lperf,nopr,smona) 
+           i+=ln+3
+ 
+           if debug: print 'returning buffer[{}:] {} {}'.format(i,len(buf[i:]),repr(buf[i:]))
+           return buf[i:],spo2_wave
+
+        else:
+           i+=1
+     
+    return buf,None
+
+
+
+
+def create_edf(idx,data0,data1,data2,data3):
+    global pdmax,pdmin,edmax,edmin,nsam,nch
+
+    ftype=pyedflib.FILETYPE_EDFPLUS
+
+    if ftype == pyedflib.FILETYPE_EDFPLUS:
+       imax=2**15-1
+       imin=-2**15
+
+    if ftype == pyedflib.FILETYPE_BDFPLUS:
+       imax=2**23-1
+       imin=-2**23
+
+    fname='{}/recobro_test_{:08d}.edf'.format(ldir,idx)
+
+
+    #print 'idx {} nch {}\nlen {} {}\nlen {} {}\nlen {} {}\nlen {} {}'.format(idx,nch,len(data0),data0,len(data1),data1,len(data2),data2,len(data3),data3)
+    #raw_input('\nenter to continue\n')
+
+    channel_info0 = {
+    'label'         : 'test_label',
+    'dimension'     : '%O2',
+    'sample_rate'   : 100,
+    'physical_max'  : 15.0,
+    'physical_min'  : -15.0,
+    'digital_max'   : 32767,
+    'digital_min'   : -32768,
+    'prefilter'     : 'pre01',
+    'transducer'    : 'trans0'
+    }
+
+    channel_info1 = {
+    'label'         : 'test_label',
+    'dimension'     : 'mV',
+    'sample_rate'   : 100,
+    'physical_max'  : 15.0,
+    'physical_min'  : -15.0,
+    'digital_max'   : 32767,
+    'digital_min'   : -32768,
+    'prefilter'     : 'pre1',
+    'transducer'    : 'trans1'
+    }
+
+    channel_info2 = {
+    'label'         : 'test_label',
+    'dimension'     : 'mV',
+    'sample_rate'   : 100,
+    'physical_max'  : 15.0,
+    'physical_min'  : -15.0,
+    'digital_max'   : 32767,
+    'digital_min'   : -32768,
+    'prefilter'     : 'pre2',
+    'transducer'    : 'trans2'
+    }
+
+    channel_info3 = {
+    'label'         : 'test_label',
+    'dimension'     : 'C',
+    'sample_rate'   : 1,
+    'physical_max'  : 65.0,
+    'physical_min'  : 0.0,
+    'digital_max'   : 32767,
+    'digital_min'   : -32768,
+    'prefilter'     : 'pre3',
+    'transducer'    : 'trans3'
+    }
+
+    os.system('mkdir -p {}'.format(ldir))
+    print 'filename {}'.format(fname)
+    edf = pyedflib.EdfWriter(fname,nch,file_type=ftype); print 'edf {}'.format(edf)
+
+    r=edf.setTechnician('tec1')                                ;# print 'setTechnician ret {}'.format(r)
+    r=edf.setRecordingAdditional(str(index))                   ;# print 'setRecordingAdditional ret {}'.format(r)
+    r=edf.setPatientName('pat1')                               ;# print 'setPatientName ret {}'.format(r)
+    r=edf.setPatientCode('code1')                              ;# print 'setPatientCode ret {}'.format(r)
+    r=edf.setPatientAdditional('patAdd1')                      ;# print 'setPatientAdditional ret {}'.format(r)
+    r=edf.setAdmincode('admin1')                               ;# print 'setAdmincode ret {}'.format(r)
+    r=edf.setEquipment(client_id)                              ;# print 'setEquipment ret {}'.format(r)
+    r=edf.setGender(1)                                         ;# print 'setGender ret {}'.format(r)
+    r=edf.setBirthdate(date(1999, 1, 2))                       ;# print 'setBirthdate(date ret {}'.format(r)
+    r=edf.setStartdatetime(datetime(2018, 7, 11, 10, 11, 12))  ;# print 'setStartdatetime ret {}'.format(r)
+
+    r=edf.setSignalHeader(0,channel_info0)                     ;# print 'setSignalHeader ret {}'.format(r)
+    r=edf.setSamplefrequency(0,nsam[0])                        ;# print 'setSamplefrequency ret {}'.format(r) # number of samples
+    r=edf.setPhysicalMaximum(0,pmax[0])                        ;# print 'setPhysicalMaximum ret {}'.format(r)
+    r=edf.setPhysicalMinimum(0,pmin[0])                        ;# print 'setPhysicalMinimum ret {}'.format(r)
+    r=edf.setLabel(0,'spo2 ch1')                               ;# print 'setLabe ret {}'.format(r)
+    r=edf.setPhysicalDimension(0,'mV')                         ;# print 'setPhysicalDimension ret {}'.format(r)
+    r=edf.setTransducer(0,'trans0')                            ;# print 'setTransducer ret {}'.format(r)
+    r=edf.setPrefilter(0,'pre0')                               ;# print 'setPrefilter ret {}'.format(r)
+
+
+    r=edf.setSignalHeader(1,channel_info1)                     ;# print 'setSignalHeader ret {}'.format(r)
+    r=edf.setSamplefrequency(1,nsam[1])                        ;# print 'setSamplefrequency ret {}'.format(r) # number of samples
+    r=edf.setPhysicalMaximum(1,pmax[1])                        ;# print 'setPhysicalMaximum ret {}'.format(r)
+    r=edf.setPhysicalMinimum(1,pmin[1])                        ;# print 'setPhysicalMinimum ret {}'.format(r)
+    r=edf.setLabel(1,'pleth data')                             ;# print 'setLabe ret {}'.format(r)
+    r=edf.setPhysicalDimension(1,'mV')                         ;# print 'setPhysicalDimension ret {}'.format(r)
+    r=edf.setTransducer(1,'trans1')                            ;# print 'setTransducer ret {}'.format(r)
+    r=edf.setPrefilter(1,'pre1')                               ;# print 'setPrefilter ret {}'.format(r)
+
+
+
+    r=edf.setSignalHeader(2,channel_info2)                     ;# print 'setSignalHeader ret {}'.format(r)
+    r=edf.setSamplefrequency(2,nsam[2])                        ;# print 'setSamplefrequency ret {}'.format(r) # number of samples
+    r=edf.setPhysicalMaximum(2,pmax[2])                        ;# print 'setPhysicalMaximum ret {}'.format(r)
+    r=edf.setPhysicalMinimum(2,pmin[2])                        ;# print 'setPhysicalMinimum ret {}'.format(r)
+    r=edf.setLabel(2,'ecg data')                               ;# print 'setLabe ret {}'.format(r)
+    r=edf.setPhysicalDimension(2,'mV')                         ;# print 'setPhysicalDimension ret {}'.format(r)
+    r=edf.setTransducer(2,'trans2')                            ;# print 'setTransducer ret {}'.format(r)
+    r=edf.setPrefilter(2,'pre2')                               ;# print 'setPrefilter ret {}'.format(r)
+
+    r=edf.setSignalHeader(3,channel_info3)                     ;# print 'setSignalHeader ret {}'.format(r)
+    r=edf.setSamplefrequency(3,nsam[3])                        ;# print 'setSamplefrequency ret {}'.format(r) # number of samples
+    r=edf.setPhysicalMaximum(3,pmax[3])                        ;# print 'setPhysicalMaximum ret {}'.format(r)
+    r=edf.setPhysicalMinimum(3,pmin[3])                        ;# print 'setPhysicalMinimum ret {}'.format(r)
+    r=edf.setLabel(3,'rpi0 temp')                              ;# print 'setLabe ret {}'.format(r)
+    r=edf.setPhysicalDimension(3,'*C')                         ;# print 'setPhysicalDimension ret {}'.format(r)
+    r=edf.setTransducer(3,'trans3')                            ;# print 'setTransducer ret {}'.format(r)
+    r=edf.setPrefilter(3,'pre3')                               ;# print 'setPrefilter ret {}'.format(r)
+
+
+    #print data
+    ndata0=np.array(data0)
+    ndata1=np.array(data1)
+    ndata2=np.array(data2)
+    ndata3=np.array(data3)
+
+    if debug: print 'len ndata0 {} {}'.format(len(ndata0),ndata0)
+    if debug: print 'len ndata1 {} {}'.format(len(ndata1),ndata1)
+    if debug: print 'len ndata2 {} {}'.format(len(ndata2),ndata2)
+    if debug: print 'len ndata3 {} {}'.format(len(ndata3),ndata3)
+
+    ret=edf.writePhysicalSamples(ndata0)
+    ret=edf.writePhysicalSamples(ndata1)
+    ret=edf.writePhysicalSamples(ndata2)
+    ret=edf.writePhysicalSamples(ndata3)
+
+    print 'ret {}'.format(ret)
+    return fname
+
+
+
+print 'get fixed pleth data'
+p=open('/opt/bin/pleth','r')
+pleth=list()
+for i in p.readlines():
+    pleth.append( float(i.strip()) )
+print pleth
+
+pdmax=int(pleth[0])
+pdmin=int(pleth[0])
+for val in pleth:
+    if debug: print 'val <{}>'.format(val)
+
+    nval=int(val)
+    if debug: print 'nval {}'.format(nval)
+    if nval >= pdmax:
+       pdmax=nval
+    if nval < pdmin:
+       pdmin=nval
+    #if debug: print ' nval {} max {} min {}'.format(nval,pdmax,pdmin)
+
+print 'pleth max {} min {} .'.format(pdmax,pdmin)
+
+print 'get fixed ecg data'
+e=open('/opt/bin/ecg_200','r')
+ecg=list()
+for i in e.readlines():
+    ecg.append( float(i.strip()) )
+print ecg
+
+edmax=int(ecg[0])
+edmin=int(ecg[0])
+for val in ecg:
+    if debug: print 'val <{}>'.format(val)
+
+    nval=int(val)
+    if debug: print 'nval {}'.format(nval)
+    if nval >= edmax:
+       edmax=nval
+    if nval < edmin:
+       edmin=nval
+    #if debug: print ' nval {} max {} min {}'.format(nval,pdmax,pdmin)
+
+print 'ecg max {} min {} .'.format(edmax,edmin)
+
+
+#exit()
+
+
+ldir='/tmp/edf/{}'.format(dev_id)
+
+imax=2**15-1
+imin=-2**15
+
+
+if len(sys.argv) < 2:
+   num='0'
+else:
+   num=sys.argv[1]
+
+
+if tls:
+   servers=['industrial.api.ubidots.com']
+else:
+   servers=['61.2.247.161','iot.eclipse.org','104.131.88.122','47.222.37.191']
+   servers=['61.2.247.161','104.131.88.122','47.222.37.191']
+   servers=['104.131.88.122','47.222.37.191']
+
+client_id='recobro_000015'
+sernum=os.popen2('date +%s')[1].read().strip()[-6:]
+uuid='{:020d}'.format(int(1000000*time.time()))
+client_id='Recobro-{}{}'.format(sernum,uuid)
+client_id='Celina-7890123456789'
+
+
+topic=b'spo2_sensor_data'
+
+mqtt_port=1883
+if tls: mqtt_port=8883
+
+
+
+clients=list()
+
+for server in servers:
+    clients.append(mqtt.Client(client_id,server))
+
+
+#if debug:
+#    print client
+#    for i in dir(client): print i
+
+# adding tls
+if tls:
+   for client in clients:
+       client.tls_set(ca_certs="industrial.pem", certfile=None, keyfile=None, cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLSv1_2, ciphers=None)
+       client.tls_insecure_set(False)
+
+
+for i in range(len(clients)):
+    if debug: print 'mqtt client connection {} {} '.format(server,mqtt_port)
+    clients[i].connect(servers[i], port=mqtt_port)
+
+
+index=0
+sernum=os.popen2('date +%s')[1].read().strip()[-6:]
+uuid='{:020d}'.format(int(1000000*time.time()))
+header='recobro_{}:{}'.format(sernum,uuid)
+header='recobro_000015:room 1234:bed 2'
+header='Celina_000015:room 1234:bed 2'
+
+print header
+
+nch=4
+
+pmax = [40,40,500,50]
+pmin = list()
+#for i in range(len(pmax)):
+#    pmin.append(-pmax[i])
+pmin = [-40,-40,-500,30]
+
+
+nsam = [67,67,200,30]
+
+nch=len(pmax)
+
+
+data0=list()
+data1=list()
+data2=list()
+data3=list()
+
+idx=0
+index=0
+
+#msg='mid'
+
+
+print 'tfile'
+tnm='tfile'
+os.system('touch /tmp/tfile')
+lof=glob.glob('/tmp/tfile*')
+ltf=max(lof,key=os.path.getctime)
+
+
+
+for client in clients:
+    print 'mqtt client {}'.format(client)
+
+print 'before live data'
+
+buf=''
+
+log=open('/tmp/rfcomm0.rec_edf','w')
+
+#dev_id='celina_device_000000'
+
+if live_data:
+   #dstr=os.popen2('date +%s')[1].read().strip()[-8:]
+   #dev_id='celina_live_{}'.format(dstr)
+   print 'start live data'
+   lof=glob.glob('/dev/rfcomm*')
+   print 'lof {}'.format(lof)
+   rfcom=max(lof,key=os.path.getctime)
+
+   print 'opening rfcom device {}'.format(rfcom)
+   #f=os.open(rfcom,os.O_RDWR|os.O_NONBLOCK|os.O_NOCTTY)
+   f=open(rfcom,'rb+')
+   print 'opened rfcom device {} {}'.format(rfcom,f)
+
+   if True:
+      fd = f.fileno()
+      flag = fcntl.fcntl(fd, fcntl.F_GETFL)
+      fcntl.fcntl(fd, fcntl.F_SETFL, flag | os.O_NONBLOCK | os.O_RDWR | os.O_NOCTTY)
+      flag = fcntl.fcntl(fd, fcntl.F_GETFL)
+      print 'file descriptor {} flag {}'.format(f,flag)
+
+
+   buf=''
+   while True:
+      time.sleep(0.01)
+      if debug: print '\nwaiting for a read from rfcomm device'
+      #t=os.write(f,'\r')
+      #t=os.write(f,'\r')
+      try:
+         t=f.read()
+         log.write(t)
+         if debug:
+            print '\nlen {} t '.format(len(t))
+            for i in range(len(t)):
+                sys.stdout.write('{:02x} '.format(ord(t[i])))
+            print ''
+      except:
+         t=''
+
+      if len(t) > 0:
+         buf+=t
+         if debug: print '{} {}\n'.format(repr(t),len(buf))
+
+      while len(buf) > 80:
+         b1,spo2=get_pkt(buf)
+         if spo2 == None:
+            buf=b1
+            print '\nbreak. spo2 == None len buf = {}'.format(len(buf))
+            break
+         if debug:
+            sys.stdout.write('buf: ')
+            for i in range(len(buf)): sys.stdout.write( '{:02x} '.format( ord(buf[i])) )
+            sys.stdout.write('\nb1 : ')
+            for i in range(len(b1)): sys.stdout.write( '{:02x} '.format( ord(b1[i])) )
+         buf=b1
+         data0.append(float(spo2))
+         if len(data0) == nsam[0]:
+            
+            if idx == 0:
+               msg='sta'
+               msg='mid'
+            else:
+               msg='mid'
+            if ctlc:
+               msg='end'
+               msg='mid'
+
+            data1 = pleth
+            data2 = ecg
+            data3 = [ float(int(os.popen2('cat /sys/class/thermal/thermal_zone0/temp')[1].read().strip())/1000.0) for i in range(30) ]
+
+            fn=create_edf(idx,data0,data1,data2,data3)
+            data0=list()
+            data1=list()
+            data2=list()
+            data3=list()
+
+            idx+=1
+            print 'filename {} header {}'.format(fn,header)
+            df=open(fn,'r')
+            edfdata=df.read()
+            df.close()
+            for client in clients:
+                client.publish(topic,msg+dev_id+edfdata)
+            if ctlc:
+               exit()
+
+
+
+
+print '\nsending prerecorded pleth data\n'
+
+idx=0
+
+while True:
+      if debug:
+         #time.sleep(1)
+         print 'hello {}'.format(idx)
+
+      if index == 0:
+         data0=list()
+         data1=list()
+         data2=list()
+         data3=list()
+
+      if idx == 0:
+         msg='sta'
+         msg='mid'
+      else:
+         msg='mid'
+
+      if ctlc or limit == idx:
+         msg='end'
+         msg='mid'
+
+
+      print '\nidx {} limit {} msg {}'.format(idx,limit,msg)
+      index=0
+      print '{}'.format(topic)
+
+      d0=pleth[i*nsam[0]:(i+1)*nsam[0]]
+      d1=data0[i*nsam[0]:(i+1)*nsam[0]]
+      fn=create_edf(idx,d0,d0,d0,d0)
+
+      print 'filename {}'.format(fn)
+      df=open(fn,'r')
+      edfdata=df.read()
+      df.close()
+      for client in clients:
+          client.publish(topic,msg+dev_id+edfdata)
+      time.sleep(1)
+      if ctlc or limit == idx:
+         exit()
+
+      idx+=1
+
+
+
+
+
+
+

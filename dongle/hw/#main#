@@ -1,0 +1,223 @@
+v 20130925 2
+C 4800 81500 1 0 0 gnd-1.sym
+C 4700 84100 1 0 0 jumper.sym
+{
+T 5000 84600 5 8 0 0 0 0 1
+device=JUMPER
+T 5000 84600 5 10 1 1 0 0 1
+refdes=BATT_A?
+T 4700 84095 5 10 0 1 0 0 1
+footprint=JUMPER2
+}
+C 4700 82700 1 0 0 jumper.sym
+{
+T 5000 83200 5 8 0 0 0 0 1
+device=JUMPER
+T 5000 83200 5 10 1 1 0 0 1
+refdes=BATT_B?
+T 4700 82695 5 10 0 1 0 0 1
+footprint=JUMPER2
+}
+C 8800 83900 1 0 0 78sr.sym
+{
+T 9400 83900 5 10 0 1 0 6 1
+footprint=TO220
+T 9500 83900 5 10 1 1 0 6 1
+device=78SR-5
+T 9100 84900 5 10 1 1 0 6 1
+refdes=U?
+}
+C 8800 82600 1 0 0 78sr.sym
+{
+T 9400 82600 5 10 0 1 0 6 1
+footprint=TO220
+T 9500 82600 5 10 1 1 0 6 1
+device=78SR-5
+T 9100 83600 5 10 1 1 0 6 1
+refdes=U?
+}
+C 10500 84800 1 0 0 pj-036a_21_55.sym
+{
+T 11100 84800 5 10 0 1 0 6 1
+footprint=pj03x
+T 11300 84800 5 10 1 1 0 6 1
+device=PJ-036A
+T 11400 85800 5 10 1 1 0 6 1
+refdes=U?
+}
+C 500 85200 1 0 0 ws2812b.sym
+{
+T 1600 85200 5 10 0 1 0 6 1
+footprint=ws2812b
+T 1700 85200 5 10 1 1 0 6 1
+device=WS2812B
+T 1400 86000 5 10 1 1 0 6 1
+refdes=U?
+}
+C 2300 85300 1 0 0 ws2812b.sym
+{
+T 3400 85300 5 10 0 1 0 6 1
+footprint=ws2812b
+T 3500 85300 5 10 1 1 0 6 1
+device=WS2812B
+T 3200 86100 5 10 1 1 0 6 1
+refdes=U?
+}
+C 4300 85300 1 0 0 ws2812b.sym
+{
+T 5400 85300 5 10 0 1 0 6 1
+footprint=ws2812b
+T 5500 85300 5 10 1 1 0 6 1
+device=WS2812B
+T 5200 86100 5 10 1 1 0 6 1
+refdes=U?
+}
+C 6300 85300 1 0 0 ws2812b.sym
+{
+T 7400 85300 5 10 0 1 0 6 1
+footprint=ws2812b
+T 7500 85300 5 10 1 1 0 6 1
+device=WS2812B
+T 7200 86100 5 10 1 1 0 6 1
+refdes=U?
+}
+C 14000 78100 1 0 0 header40-2.sym
+{
+T 14250 86600 5 10 0 1 0 0 1
+device=HEADER40
+T 14600 86200 5 10 1 1 0 0 1
+refdes=J?
+}
+C 15900 78100 1 0 0 header40-2.sym
+{
+T 16150 86600 5 10 0 1 0 0 1
+device=HEADER40
+T 16500 86200 5 10 1 1 0 0 1
+refdes=J?
+}
+C 10100 79800 1 0 0 jumper.sym
+{
+T 10400 80300 5 8 0 0 0 0 1
+device=JUMPER
+T 10400 80300 5 10 1 1 0 0 1
+refdes=SWITCH?
+T 10100 79795 5 10 0 1 0 0 1
+footprint=JUMPER2
+}
+C 3900 79700 1 0 0 jumper.sym
+{
+T 4200 80200 5 8 0 0 0 0 1
+device=JUMPER
+T 4200 80200 5 10 1 1 0 0 1
+refdes=BUTTON?
+T 3900 79695 5 10 0 1 0 0 1
+footprint=JUMPER2
+}
+C 3800 78400 1 0 0 jumper.sym
+{
+T 4100 78900 5 8 0 0 0 0 1
+device=JUMPER
+T 4100 78900 5 10 1 1 0 0 1
+refdes=BUTTON?
+T 3800 78395 5 10 0 1 0 0 1
+footprint=JUMPER2
+}
+C 5800 79700 1 0 0 jumper.sym
+{
+T 6100 80200 5 8 0 0 0 0 1
+device=JUMPER
+T 6100 80200 5 10 1 1 0 0 1
+refdes=BUTTON?
+T 5800 79695 5 10 0 1 0 0 1
+footprint=JUMPER2
+}
+C 5900 78300 1 0 0 jumper.sym
+{
+T 6200 78800 5 8 0 0 0 0 1
+device=JUMPER
+T 6200 78800 5 10 1 1 0 0 1
+refdes=BUTTON?
+T 5900 78295 5 10 0 1 0 0 1
+footprint=JUMPER2
+}
+C 9100 77500 1 0 0 jumper.sym
+{
+T 9400 78000 5 8 0 0 0 0 1
+device=JUMPER
+T 9400 78000 5 10 1 1 0 0 1
+refdes=3v3?
+T 9100 77495 5 10 0 1 0 0 1
+footprint=JUMPER2
+}
+C 10900 77400 1 0 0 jumper.sym
+{
+T 11200 77900 5 8 0 0 0 0 1
+device=JUMPER
+T 11200 77900 5 10 1 1 0 0 1
+refdes=5v?
+T 10900 77395 5 10 0 1 0 0 1
+footprint=JUMPER2
+}
+C 11700 77400 1 0 0 jumper.sym
+{
+T 12000 77900 5 8 0 0 0 0 1
+device=JUMPER
+T 12000 77900 5 10 1 1 0 0 1
+refdes=5v?
+T 11700 77395 5 10 0 1 0 0 1
+footprint=JUMPER2
+}
+C 12400 77400 1 0 0 jumper.sym
+{
+T 12700 77900 5 8 0 0 0 0 1
+device=JUMPER
+T 12700 77900 5 10 1 1 0 0 1
+refdes=5v?
+T 12400 77395 5 10 0 1 0 0 1
+footprint=JUMPER2
+}
+C 13100 77300 1 0 0 jumper.sym
+{
+T 13400 77800 5 8 0 0 0 0 1
+device=JUMPER
+T 13400 77800 5 10 1 1 0 0 1
+refdes=5v?
+T 13100 77295 5 10 0 1 0 0 1
+footprint=JUMPER2
+}
+C 8300 77500 1 0 0 jumper.sym
+{
+T 8600 78000 5 8 0 0 0 0 1
+device=JUMPER
+T 8600 78000 5 10 1 1 0 0 1
+refdes=3v3?
+T 8300 77495 5 10 0 1 0 0 1
+footprint=JUMPER2
+}
+C 7500 77400 1 0 0 jumper.sym
+{
+T 7800 77900 5 8 0 0 0 0 1
+device=JUMPER
+T 7800 77900 5 10 1 1 0 0 1
+refdes=3v3?
+T 7500 77395 5 10 0 1 0 0 1
+footprint=JUMPER2
+}
+C 6700 77200 1 0 0 jumper.sym
+{
+T 7000 77700 5 8 0 0 0 0 1
+device=JUMPER
+T 7000 77700 5 10 1 1 0 0 1
+refdes=3v3?
+T 6700 77195 5 10 0 1 0 0 1
+footprint=JUMPER2
+}
+C 6700 76900 1 0 0 gnd-1.sym
+C 6300 81100 1 0 0 gnd-1.sym
+C 7500 77100 1 0 0 gnd-1.sym
+C 8300 77200 1 0 0 gnd-1.sym
+C 9100 77200 1 0 0 gnd-1.sym
+C 13100 77000 1 0 0 gnd-1.sym
+C 12400 77100 1 0 0 gnd-1.sym
+C 11700 77100 1 0 0 gnd-1.sym
+C 10900 77100 1 0 0 gnd-1.sym

@@ -1,0 +1,481 @@
+#!/bin/env python
+
+import sys
+import os
+from pprint import *
+import pprint
+import time
+
+os.system('rm /tmp/s.*_*')
+
+fn=sys.argv[1]
+
+pkt_hdr = [0x55, 0xaa]
+
+ECG_DataIn=list()
+
+for i in range(34):
+    ECG_DataIn.append(None)
+
+
+h=' '.join( '{:02X}'.format(i) for i in range(40) )
+
+found_zero = False
+
+fout = open('log_this', 'w')
+
+sL1  = list()
+sL2  = list()
+sL3  = list()
+sV   = list()
+sAVR = list()
+sAVL = list()
+sAVF = list()
+sd0  = list()
+
+
+def pframe(outBuf):
+    global ECG_DataIn
+    global found_zero
+    global sL1, sL2, sL3, sV, sAVR, sAVL, sAVF, sd0
+    print len(outBuf)
+
+    FRAME_NUM = 0
+    MOD_BITS_LSB = 1
+    MOD_BITS_MSB = 2
+    QUICK_COMMAND = 3
+    FRAME_BYTES = 4
+
+    ECG_LAST_BYTE = 23
+    SPO2_LAST_BYTE = 10
+    TEMP_LAST_BYTE = 5
+    NIBP_LAST_BYTE = 6
+    IBP_LAST_BYTE = 25
+    CO2_LAST_BYTE = 4
+
+    IN_ECG5_BYTES = 1
+    IN_SPO2_BYTES = 4
+    IN_NIBP_BYTES = 5
+    IN_IBP1_BYTES = 5
+    IN_IBP2_BYTES = 5
+    IN_TEMP_BYTES = 1
+    IN_ETCO2_BYTES = 3
+
+    NO_MODULE_BIT = 1
+    ECG_5L_BIT = 2
+    SPO2_BIT = 4
+    NIBP_BIT = 8
+    IBP1_BIT = 16
+    IBP2_BIT = 32
+    TEMP_BIT = 64
+    ETCO2_BIT = 128
+    AGM_BIT = (1 << 8)
+    CO_BIT = (2 << 8)
+    DOA_BIT = (4 << 8)
+    PT_INFO_BIT = (8 << 8)
+    ECG_3L_BIT = (16 << 8)
+    AVG_COMPLEX_BIT = (32 << 8)
+    NEW_MODULE_BIT = (64 << 8)
+
+    print 'outBuf len {} {}'.format(len(outBuf),repr(outBuf))
+    temp = outBuf[MOD_BITS_LSB] | (outBuf[MOD_BITS_MSB] << 8)
+    print 'frame number {}'.format(outBuf[FRAME_NUM])
+    print 'mod bit lsb  {}'.format(outBuf[MOD_BITS_LSB])
+    print 'mod bit msb  {}'.format(outBuf[MOD_BITS_MSB])
+    print 'quick cmd    {}'.format(outBuf[QUICK_COMMAND])
+    print 'frame bytes  {}'.format(outBuf[FRAME_BYTES])
+    print 'temp         {}'.format(temp)
+
+    if temp & NO_MODULE_BIT: print 'NO_MODULE_BIT'
+    if temp & ECG_5L_BIT: print 'ECG_5L_BIT'
+    if temp & SPO2_BIT: print 'SPO2_BIT'
+    if temp & NIBP_BIT: print 'NIBP_BIT'
+    if temp & IBP1_BIT: print 'IBP1_BIT'
+    if temp & IBP2_BIT: print 'IBP2_BIT'
+    if temp & TEMP_BIT: print 'TEMP_BIT'
+    if temp & ETCO2_BIT: print 'ETCO2_BIT'
+    if temp & AGM_BIT: print 'AGM_BIT'
+    if temp & CO_BIT: print 'CO_BIT'
+    if temp & DOA_BIT: print 'DOA_BIT'
+    if temp & PT_INFO_BIT: print 'PT_INFO_BIT'
+    if temp & ECG_3L_BIT: print 'ECG_3L_BIT'
+    if temp & AVG_COMPLEX_BIT: print 'AVG_COMPLEX_BIT'
+    if temp & NEW_MODULE_BIT: print 'NEW_MODULE_BIT'
+
+    IN_ECG5_PARA = 0;
+    IN_ECG5_WAVE1_S0 = 1;
+    IN_ECG5_WAVE1_S1 = 2;
+    IN_ECG5_WAVE1_S2 = 3;
+    IN_ECG5_WAVE2_S0 = 4;
+    IN_ECG5_WAVE2_S1 = 5;
+    IN_ECG5_WAVE2_S2 = 6;
+    IN_ECG5_WAVE3_S0 = 7;
+    IN_ECG5_WAVE3_S1 = 8;
+    IN_ECG5_WAVE3_S2 = 9;
+    IN_ECG5_FLAGS_LSB = 10;
+    IN_ECG5_FLAGS_MSB = 11;
+    IN_ECG5_RESP_WAVE = 12;
+    IN_ECG5_BYTES = 16;
+
+    ModOffset = FRAME_BYTES
+
+    EcgInFlags = (outBuf[ModOffset + IN_ECG5_FLAGS_MSB] << 8) + outBuf[ModOffset + IN_ECG5_FLAGS_LSB]
+    print 'EcgInFlags {} ModOffset {} IN_ECG5_FLAGS_LSB {} IN_ECG5_FLAGS_MSB {}'.format(EcgInFlags,ModOffset,IN_ECG5_FLAGS_LSB,IN_ECG5_FLAGS_MSB)
+
+    if outBuf[FRAME_NUM] < ECG_LAST_BYTE:
+       ECG_DataIn[outBuf[FRAME_NUM]] = outBuf[ModOffset + IN_ECG5_PARA];
+    print 'ECG_DataIn {}'.format(ECG_DataIn)
+
+    T1_CAL_VAL_IN = 19
+    T2_CAL_VAL_IN = 20
+    ECG_HR = 0
+    ECG_HR_EX = 21
+    BREATH_RATE = 2
+    ECG_RECOBRO_PS = 22
+    ECG_SW_VERSION = 14
+    ECG_IMP_L1 = 15
+    ECG_IMP_L2 = 16
+    ECG_IMP_V = 17
+    ECG_DET_LEAD = 18
+
+
+    if outBuf[FRAME_NUM] == ECG_LAST_BYTE:
+       T1ValIn = ECG_DataIn[T1_CAL_VAL_IN];
+       T2ValIn = ECG_DataIn[T2_CAL_VAL_IN];
+       EcgHr = ECG_DataIn[ECG_HR] + ECG_DataIn[ECG_HR_EX];
+       Ecg_Breath_rate = ECG_DataIn[BREATH_RATE];
+       RECOBRO_POWER_STAT = (ECG_DataIn[ECG_RECOBRO_PS]);
+       EcgSoftVersion = ECG_DataIn[ECG_SW_VERSION];
+       Ecg_Imp_L1 = ECG_DataIn[ECG_IMP_L1];
+       Ecg_Imp_L2 = ECG_DataIn[ECG_IMP_L2];
+       Ecg_Imp_V = ECG_DataIn[ECG_IMP_V];
+       Ecg_Det_Lead = ECG_DataIn[ECG_DET_LEAD];
+
+       print 'T1ValIn {}'.format(T1ValIn)
+       print 'T2ValIn {}'.format(T2ValIn)
+       print 'EcgHr {}'.format(EcgHr)
+       print 'Ecg_Breath_rate {}'.format(Ecg_Breath_rate)
+       print 'RECOBRO_POWER_STAT {}'.format(RECOBRO_POWER_STAT)
+       print 'EcgSoftVersion {}'.format(EcgSoftVersion)
+       print 'Ecg_Imp_L1 {}'.format(Ecg_Imp_L1)
+       print 'Ecg_Imp_L2 {}'.format(Ecg_Imp_L2)
+       print 'Ecg_Imp_V {}'.format(Ecg_Imp_V)
+       print 'Ecg_Det_Lead {}'.format(Ecg_Det_Lead)
+       #print ' {}'.format()
+       #print ' {}'.format()
+
+       # if k > 0 - hardcoded in pkt_resolver
+       
+       TEMP_CH1_LSB = 4
+       TEMP_CH1_MSB = 5
+       TEMP_CH2_LSB = 6
+       TEMP_CH2_MSB = 7
+
+       d0 = ECG_DataIn[TEMP_CH1_LSB]
+       d1 = ECG_DataIn[TEMP_CH1_MSB]
+       Ecg_T1 = (d1 << 8) + d0
+       print 'd0 {}'.format(d0)
+       print 'd1 {}'.format(d1)
+       print 'Ecg_T1 {}'.format(Ecg_T1)
+       Temp_Ch1_A = d0 + (d1 << 8);
+       Temp_Ch1_A = Temp_Ch1_A / 10;
+       print 'Temp_Ch1_A {}'.format(Temp_Ch1_A)
+
+       d0 = ECG_DataIn[TEMP_CH2_LSB]
+       d1 = ECG_DataIn[TEMP_CH2_MSB]
+       Ecg_T2 = (d1 << 8) + d0
+       print 'd0 {}'.format(d0)
+       print 'd1 {}'.format(d1)
+       print 'Ecg_T2 {}'.format(Ecg_T2)
+       Temp_Ch2_A = d0 + (d1 << 8);
+       Temp_Ch2_A = Temp_Ch2_A / 10;
+       print 'Temp_Ch2_A {}'.format(Temp_Ch2_A)
+
+       ECG_AYSTOLE = 9
+       ECG_IRREGULAR_RYTHEM = 10
+       ECG_BRADYCARDIA = 11
+       ECG_TACHYCARDIA = 12
+       ECG_WIDE_QRS = 13
+       RESP_APNEA = 3
+
+       EcgInSecFlags = (ECG_DataIn[ECG_AYSTOLE] | (ECG_DataIn[ECG_IRREGULAR_RYTHEM] << 1) | (ECG_DataIn[ECG_BRADYCARDIA] << 2) | (ECG_DataIn[ECG_TACHYCARDIA] << 3) | (ECG_DataIn[ECG_WIDE_QRS] << 4) | (ECG_DataIn[RESP_APNEA] << 5))
+       print 'EcgInSecFlags {}'.format(EcgInSecFlags)
+
+    ECGGainFactor = 1
+    IN_ECG5_WAVE1_S0 = 1
+    IN_ECG5_WAVE2_S0 = 4
+    IN_ECG5_WAVE3_S0 = 7
+    L1 = 0
+    L2 = 1
+    V = 2
+    L3 = 3
+    AVR = 4
+    AVL = 5
+    AVF = 6
+
+    #EcgInBuf[][] = new int[7][3];
+    w, h = 7, 3
+    w, h = 10,10
+    w, h = 3,7
+    EcgInBuf = [[0 for x in range(w)] for y in range(h)]
+
+
+    FLG_MASK = [ [ 0x80, 0x100, 0x200 ], [ 0x400, 0x800, 0x1000 ], [ 0x2000, 0x4000, 0x8000 ] ]
+    
+    LEAD_OPEN_ECG = 0x01
+
+
+
+    for i in range(3):
+        if EcgInFlags & LEAD_OPEN_ECG > 0:
+           print 'ecg lead open'
+           dL1 = 0
+           dL2 = 0
+           dV  = 0
+        else:
+           print 'ecg lead not open'
+           d0 = outBuf[ModOffset + IN_ECG5_WAVE1_S0 + i]
+           print 'dL1 {} modoffset {} IN_ECG5_WAVE1_S0 {} i {}'.format(d0,ModOffset,IN_ECG5_WAVE1_S0,i)
+           if EcgInFlags & FLG_MASK[0][i] > 0:
+              print 'invert sL1 {} {}'.format(EcgInFlags,i)
+              d0=-d0
+           d0 = d0 * ECGGainFactor
+           dL1 = d0
+
+           d0 = outBuf[ModOffset + IN_ECG5_WAVE2_S0 + i]
+           print 'dL2 {} modoffset {} IN_ECG5_WAVE2_S0 {} i {}'.format(d0,ModOffset,IN_ECG5_WAVE2_S0,i)
+           if EcgInFlags & FLG_MASK[1][i] > 0:
+              print 'invert sL2 {} {}'.format(EcgInFlags,i)
+              d0=-d0
+           d0 = d0 * ECGGainFactor
+           dL2 = d0
+
+           d0 = outBuf[ModOffset + IN_ECG5_WAVE3_S0 + i]
+           print 'dV {} modoffset {} IN_ECG5_WAVE3_S0 {} i {}'.format(d0,ModOffset,IN_ECG5_WAVE3_S0,i)
+           if EcgInFlags & FLG_MASK[2][i] > 0:
+              print 'invert sL3 {} {}'.format(EcgInFlags,i)
+              d0=-d0
+           d0 = d0 * ECGGainFactor
+           dV = d0
+
+        dL3 = dL2 - dL1
+        print 'dL3 {}'.format(dL3)
+        
+        print 'dL1 {} dL2 {} dV {} dL3 {}'.format(dL1,dL2,dV,dL3)  
+        print 'indices L1 {} L2 {} V {} L3 {} AVR {} AVL {} AVF {}'.format(L1,L2,V,L3,AVR,AVL,AVF)
+        #pprint(EcgInBuf)
+        EcgInBuf[L1][i] = dL1
+        sL1.append(EcgInBuf[L1][i])
+
+        EcgInBuf[L2][i] = dL2
+        sL2.append(EcgInBuf[L2][i])
+
+        EcgInBuf[V][i] = dV
+        sV.append(EcgInBuf[V][i])
+
+        EcgInBuf[L3][i] = dL3
+        sL3.append(EcgInBuf[L3][i])
+
+        EcgInBuf[AVR][i] = -((dL1 + dL2) >> 1)
+        sAVR.append(EcgInBuf[AVR][i])
+
+        EcgInBuf[AVL][i] = ((dL1 - dL3) >> 1)
+        sAVL.append(EcgInBuf[AVL][i])
+
+        EcgInBuf[AVF][i] = ((dL2 + dL3) >> 1)
+        sAVF.append(EcgInBuf[AVF][i])
+
+        print ''
+        #pprint(EcgInBuf)
+        #raw_input()
+
+
+    d0 = outBuf[ModOffset + IN_ECG5_RESP_WAVE]
+    if d0 > 127:
+       d0 = d0 -256
+    sd0.append(d0)
+    print 'ecg d0 {}'.format(d0)
+    print pprint.pformat(EcgInBuf)
+    fout.write('{}\n'.format(d0))
+    #fout.write(pprint.pformat(EcgInBuf))
+    #fout.write('\n')
+
+
+def rraw(fn):
+    global found_zero
+    global sL1, sL2, sL3, sV, sAVR, sAVL, sAVF, sd0
+    i=0
+    t=open(fn,'rb').read()
+
+    idx=0
+    buf=bytearray()    
+    while True and i < len(t)-5:
+          if ord(t[i]) == 0x55 and ord(t[i+1]) == 0xaa:
+                idx+=1
+                if len(buf[2:]) == 34 and found_zero:
+                   #raw_input('\n'+' '.join('{:02x}'.format(byte) for byte in buf[0:8] )+' enter to continue')
+                   if buf[2] == 0x00: # frame 0
+                      ts='{:13.2f}'.format(time.time())
+                      fn = '/tmp/sL1_{}'.format(ts)
+                      with open(fn, 'w') as fout:
+                           for item in sL1: fout.write('{}\n'.format(item))
+
+                      fn = '/tmp/sL2_{}'.format(ts)
+                      with open(fn, 'w') as fout:
+                           for item in sL2: fout.write('{}\n'.format(item))
+
+                      fn = '/tmp/sL3_{}'.format(ts)
+                      with open(fn, 'w') as fout:
+                           for item in sL3: fout.write('{}\n'.format(item))
+
+                      fn = '/tmp/sV_{}'.format(ts)
+                      with open(fn, 'w') as fout:
+                           for item in sV: fout.write('{}\n'.format(item))
+
+                      fn = '/tmp/sAVR_{}'.format(ts)
+                      with open(fn, 'w') as fout:
+                           for item in sAVR: fout.write('{}\n'.format(item))
+
+                      fn = '/tmp/sAVL_{}'.format(ts)
+                      with open(fn, 'w') as fout:
+                           for item in sAVL: fout.write('{}\n'.format(item))
+
+                      fn = '/tmp/sAVF_{}'.format(ts)
+                      with open(fn, 'w') as fout:
+                           for item in sAVF: fout.write('{}\n'.format(item))
+
+                      fn = '/tmp/sd0_{}'.format(ts)
+                      with open(fn, 'w') as fout:
+                           for item in sd0: fout.write('{}\n'.format(item))
+
+
+
+                      #raw_input('ecg data written. enter to continue')
+                      sL1  = list()
+                      sL2  = list()
+                      sL3  = list()
+                      sV   = list()
+                      sAVR = list()
+                      sAVL = list()
+                      sAVF = list()
+                      sd0  = list()
+                   else:
+                      print '{}'.format(sL1)
+                      #raw_input('ecg data. enter to continue')
+ 
+                   pframe(buf[2:])
+                buf=bytearray()
+                if ord(t[i+3]) == 0x00:
+                   found_zero = True
+                   print '\n\n\n{}\n'.format(h)
+                else:
+                   print ''  
+          else:
+             buf.append(t[i])
+             sys.stdout.write('{:02x} '.format(ord(t[i])))
+             sys.stdout.flush()
+          i=i+1
+
+
+
+rraw(fn)
+
+print '\n'
+
+#outBuf=bytearray([0x55,0xc2,0xaa,0x22,0x04,0x1e,0x00,0x1b,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x51,0x00,0x00,0x00,0x00,0x00,0x39,0x0c,0x00,0x40,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00])
+
+outBuf=bytearray([0x04,0x1e,0x00,0x1b,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x51,0x00,0x00,0x00,0x00,0x00,0x39,0x0c,0x00,0x40,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00])
+s_outBuf = ' '.join('{:02x}'.format(byte) for byte in outBuf)
+
+def pframe(outBuf):
+    print len(outBuf)
+
+ 
+    FRAME_NUM = 0
+    MOD_BITS_LSB = 1
+    MOD_BITS_MSB = 2
+    QUICK_COMMAND = 3
+    FRAME_BYTES = 4
+
+    ECG_LAST_BYTE = 23
+    SPO2_LAST_BYTE = 10
+    TEMP_LAST_BYTE = 5
+    NIBP_LAST_BYTE = 6
+    IBP_LAST_BYTE = 25
+    CO2_LAST_BYTE = 4
+
+    IN_ECG5_BYTES = 1
+    IN_SPO2_BYTES = 4
+    IN_NIBP_BYTES = 5
+    IN_IBP1_BYTES = 5
+    IN_IBP2_BYTES = 5
+    IN_TEMP_BYTES = 1
+    IN_ETCO2_BYTES = 3
+
+    NO_MODULE_BIT = 1
+    ECG_5L_BIT = 2
+    SPO2_BIT = 4
+    NIBP_BIT = 8
+    IBP1_BIT = 16
+    IBP2_BIT = 32
+    TEMP_BIT = 64
+    ETCO2_BIT = 128
+    AGM_BIT = (1 << 8)
+    CO_BIT = (2 << 8)
+    DOA_BIT = (4 << 8)
+    PT_INFO_BIT = (8 << 8)
+    ECG_3L_BIT = (16 << 8)
+    AVG_COMPLEX_BIT = (32 << 8)
+    NEW_MODULE_BIT = (64 << 8)
+
+    temp = outBuf[MOD_BITS_LSB] | (outBuf[MOD_BITS_MSB] << 8)
+    print 'frame number {}'.format(outBuf[FRAME_NUM])
+    print 'mod bit lsb  {}'.format(outBuf[MOD_BITS_LSB])
+    print 'mod bit msb  {}'.format(outBuf[MOD_BITS_MSB])
+    print 'quick cmd    {}'.format(outBuf[QUICK_COMMAND])
+    print 'frame bytes  {}'.format(outBuf[FRAME_BYTES])
+    print 'temp         {}'.format(temp)
+
+    if temp & NO_MODULE_BIT: print 'NO_MODULE_BIT'
+    if temp & ECG_5L_BIT: print 'ECG_5L_BIT'
+    if temp & SPO2_BIT: print 'SPO2_BIT'
+    if temp & NIBP_BIT: print 'NIBP_BIT'
+    if temp & IBP1_BIT: print 'IBP1_BIT'
+    if temp & IBP2_BIT: print 'IBP2_BIT'
+    if temp & TEMP_BIT: print 'TEMP_BIT'
+    if temp & ETCO2_BIT: print 'ETCO2_BIT'
+    if temp & AGM_BIT: print 'AGM_BIT'
+    if temp & CO_BIT: print 'CO_BIT'
+    if temp & DOA_BIT: print 'DOA_BIT'
+    if temp & PT_INFO_BIT: print 'PT_INFO_BIT'
+    if temp & ECG_3L_BIT: print 'ECG_3L_BIT'
+    if temp & AVG_COMPLEX_BIT: print 'AVG_COMPLEX_BIT'
+    if temp & NEW_MODULE_BIT: print 'NEW_MODULE_BIT'
+
+    IN_ECG5_PARA = 0;
+    IN_ECG5_WAVE1_S0 = 1;
+    IN_ECG5_WAVE1_S1 = 2;
+    IN_ECG5_WAVE1_S2 = 3;
+    IN_ECG5_WAVE2_S0 = 4;
+    IN_ECG5_WAVE2_S1 = 5;
+    IN_ECG5_WAVE2_S2 = 6;
+    IN_ECG5_WAVE3_S0 = 7;
+    IN_ECG5_WAVE3_S1 = 8;
+    IN_ECG5_WAVE3_S2 = 9;
+    IN_ECG5_FLAGS_LSB = 10;
+    IN_ECG5_FLAGS_MSB = 11;
+    IN_ECG5_RESP_WAVE = 12;
+    IN_ECG5_BYTES = 16;
+
+    ModOffset = FRAME_BYTES
+
+    EcgInFlags = (outBuf[ModOffset + IN_ECG5_FLAGS_MSB] << 8) + outBuf[ModOffset + IN_ECG5_FLAGS_LSB]
+    print 'ecg5 flags {} {} {} {}'.format(EcgInFlags,ModOffset,IN_ECG5_FLAGS_LSB,IN_ECG5_FLAGS_MSB)
+
+    print s_outBuf
+
+
+
+#pframe(outBuf)
+
+

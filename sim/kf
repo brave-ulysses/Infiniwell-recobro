@@ -1,0 +1,67 @@
+#!/bin/env python
+
+
+
+import numpy as np
+import datetime
+import os
+import pyedflib
+import shutil
+import time
+import math
+from confluent_kafka import Producer
+import sys
+
+
+
+def delivery_report(err, msg):
+
+    """ Called once for each message produced to indicate delivery result.
+        Triggered by poll() or flush(). """
+    if err is not None:
+        print('Message delivery failed: {}'.format(err))
+    else:
+        sys.stdout.write('\rdelivery ok @{:12.2f}'.format(time.time()))
+
+broker_host        = "209.97.183.213:9092" # DigitalOcean VM
+edf_topic          = "kafka-spo2-sensor-data" # "spo2_sensor_data"
+OPCODE_LEN         = 3
+DEVICEID_LEN       = 20
+START_RECORDING_OP = 'sta'
+RECORDING_CHUNK_OP = 'mid'
+END_RECORDING_OP   = 'end'
+TEST_OP            = 'tst'
+
+edf_file_name = "222-3min.edf"
+chunk_size_second = 1 # number of seconds to stream each time
+
+unique_type = 'kafka_test-%06d' % np.random.randint (0, 100000)
+unique_id = "%-20s" % unique_type
+
+servers=['209.97.183.213:9092']
+clients=list()
+for server in servers:
+    clients.append(Producer({'bootstrap.servers': server}))
+
+#p = Producer({'bootstrap.servers': broker_host})
+
+buffer=open('/tmp/edf/celina_1535520356890/recobro_test_00000002.edf','r').read()
+
+buf = bytearray (RECORDING_CHUNK_OP.encode ('utf-8') + unique_id.encode ('utf-8') + buffer)
+
+raw_input()
+
+while True:
+      for client in clients:
+          client.produce(edf_topic, value = bytes (buf), callback=delivery_report)
+          client.flush()
+      time.sleep (1)
+
+
+
+
+
+
+
+
+

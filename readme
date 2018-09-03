@@ -1,0 +1,21 @@
+
+
+run as root
+
+to use captured data instead of a recobro, start rfcomm in the background
+
+./rfcomm &
+
+this will delete.create /dev/rfcomm1 and write the captured data in divesh.rec to it
+
+
+to start edf transfer
+
+./rec_ecg
+
+to stop, hit ctrl-c
+
+
+
+
+

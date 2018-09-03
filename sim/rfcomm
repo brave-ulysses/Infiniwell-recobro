@@ -1,0 +1,29 @@
+#!/bin/env python
+
+import os
+import time
+
+rf='/dev/rfcomm1'
+
+os.system('rm {}'.format(rf))
+os.system('mkfifo {}'.format(rf))
+
+f=open('divesh.rec','r').read()
+
+lim=len(f)
+
+idx=0
+
+sz=100
+
+with open(rf,'w') as p:
+     while True:
+           dat=f[idx*sz:(idx+1)*sz]
+           p.write(dat)
+           p.flush()
+           time.sleep(1.0/67.0)
+           idx=idx+1
+           if idx*sz > lim:
+              idx=0
+           print idx,lim,idx*sz
+
