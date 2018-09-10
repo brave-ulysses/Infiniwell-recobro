@@ -1,0 +1,59 @@
+#!/bin/env python
+
+import os
+import sys
+import pexpect
+import re
+import time
+
+debug=False
+
+def cmd (txt):
+    global bt
+    if debug: print '  sending {}'.format(txt)
+    bt.send(txt+'\r')
+    exp_list=[pexpect.EOF,pexpect.TIMEOUT,r'#']
+    rt=bt.expect(exp_list)
+    if debug: print 'returns {} {}'.format(rt,exp_list[rt])
+    ret = bt.before
+    time.sleep(0.125)
+    return ret
+
+
+while not os.path.isfile('/dev/rfcomm0'):
+
+      bt = pexpect.spawn('bluetoothctl')
+      bt.logfile=sys.stdout
+      if debug: print 'bt spawn_id {}'.format(bt)
+      cmd('power on')
+      cmd('agent KeyboardDisplay')
+      cmd('default-agent')
+      cmd('scan on')
+
+      found_recobro = False
+      while not found_recobro:
+            ret = cmd('devices')
+            if debug: print 'ret {}'.format(ret)
+            if 'recobro' in repr(ret).lower():
+               found_recobro = True
+               if debug: print 'found recobro in {}'.format(repr(ret).lower())
+
+      for line in ret.split('\n'):
+          line=line.strip().lower()
+          if debug: print 'searching line {}'.format(line)
+          if 'recobro' in line:
+             bt_mac=line.split(' ')[1]
+             if debug: print 'bt_mac {}'.format(bt_mac)
+
+      bt.close()
+      del bt
+  
+      print '\nrfcomm -r connect hci0 {} 1 &'.format(bt_mac)
+      os.system('rfcomm -r connect hci0 {} 1 &'.format(bt_mac))
+
+      time.sleep(5)
+
+
+
+
+

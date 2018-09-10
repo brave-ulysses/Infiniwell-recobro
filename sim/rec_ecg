@@ -90,15 +90,15 @@ for arg in sys.argv:
        exit()
 
 
-if live_data:
-   try:
-       os.stat('/dev/rfcomm0')
-       print '/dev/rfcomm0 exists'
-   except:
-       print 'starting /dev/rfcomm0 device'
-       os.system('rfcomm -r connect hci0 00:80:E1:BC:1B:CD 1 &')
-       time.sleep(2)
-   print 'started /dev/rfcomm0 device'
+#if live_data:
+#   try:
+#       os.stat('/dev/rfcomm0')
+#       print '/dev/rfcomm0 exists'
+#   except:
+#       print 'starting /dev/rfcomm0 device'
+#       os.system('rfcomm -r connect hci0 00:80:E1:BC:1B:CD 1 &')
+#       time.sleep(2)
+#   print 'started /dev/rfcomm0 device'
    
 
 #else:

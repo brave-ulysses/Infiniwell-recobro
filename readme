@@ -2,12 +2,7 @@
 
 run as root
 
-to use captured data instead of a recobro, start rfcomm in the background
-
-./rfcomm &
-
-this will delete.create /dev/rfcomm1 and write the captured data in divesh.rec to it
-
+add call to check_recobro to /etc/rc.local
 
 to start edf transfer
 
@@ -15,6 +10,9 @@ to start edf transfer
 
 to stop, hit ctrl-c
 
+rec_ecg will stream first file found of
+/dev/rfcomm0 - live recobro data
+/dev/rfcomm1 - pipe created by rec_ecg to stream canned data
 
 
 
